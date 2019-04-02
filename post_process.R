@@ -163,15 +163,3 @@ res.all.SIS2 = multi_get_preval(groupby = "val")
 res.all.SIS = multi_get_preval(equimode = 20)
 res.all.SIS = multi_get_preval(groupby = "val",equimode = 20)
 
-
-
-#### DON'T RUN CODES BELOW ####
-
-# try smoothing for better visual
-
-dat.sel = dat %>% filter(REP==1) %>% dplyr::select(time, preval)
-
-lo = loess(preval ~ time, dat.sel, span=0.3)
-
-plot(preval~time, type="l", data=dat.sel)
-lines(predict(lo)~time, col="red", data=dat.sel)
