@@ -1,12 +1,8 @@
 # 03/04/2019
 # Simulator for continuous-time co-evolution of social networks and epidemics
 
-# 03/09/2019
-# Run on server
-
 # 03/18/2019
 # Debugged
-
 
 library(Matrix)
 library(igraph)
@@ -522,90 +518,7 @@ rep_stochastic_coevolve <- function(N=200, tmax=100,
 
 
 
-
-#### RUN CODES BELOW ON SERVER ####
-
-slurm_arrayid <- Sys.getenv('SLURM_ARRAY_TASK_ID')
-ss = as.numeric(slurm_arrayid)
-set.seed(ss)
-
-outdir = "cont_test_SIS/"
-
-
-## 1. no quarantine; experiment to observe the "baseline"
-
-# ix = ss %% 10 + 1
-# 
-# beta.vals= seq(from = 0.01, to = 0.1, by = .01)
-# BE = beta.vals[ix]
-# 
-# if(ss <= 10){
-#   pdf(paste0(outdir,"SIS_noQua_",BE,".pdf"))
-# 
-#   dats = rep_stochastic_coevolve(bet = BE, init.infec = 10,
-#                                  seed = sample(1000,1), n.sim = 10)
-# 
-#   saveRDS(dats,file=paste0(outdir,"SIS_noQua_",BE,".rds"))
-#   dev.off()
-# }else{
-#   pdf(paste0(outdir,"SIR_noQua_",BE,".pdf"))
-# 
-#   dats = rep_stochastic_coevolve(model = "SIR", bet = BE, init.infec = 10,
-#                                  seed = sample(1000,1), n.sim = 10)
-# 
-#   saveRDS(dats,file=paste0(outdir,"SIR_noQua_",BE,".rds"))
-#   dev.off()
-# }
-
-
-## 2. with quarantine: fix beta=0.09, try varying alpha.*.SI from .000 to .009
-
-# a change: try running for 1000 time units
-
-# another change: try out huge d.vals
-
-BE = .09
-
-r.vals= seq(from = 0, to = .009, by = .001)
-
-ix = ss %% length(r.vals) + 1
-r.rate = r.vals[ix]
-
-#d.vals = seq(from = 0, to = .09, by = .01)
-d.vals = seq(from = 0, to = .9, by = .1)
-
-if(ss <= length(r.vals)){
-  pdf(paste0(outdir,"SIS_Qua_",r.rate,".pdf"))
-  for(iy in 1:length(d.vals)){
-    d.rate = d.vals[iy]
-    dats = rep_stochastic_coevolve(bet = BE, init.infec = 10,
-                                   alpha.r = c(.005, r.rate, .005),
-                                   alpha.d = c(.05, d.rate, .05),
-                                   quarantine = T,
-                                   seed = sample(1000,1), n.sim = 10,
-                                   tmax = 1000)
-    saveRDS(dats,file=paste0(outdir,"SIS_Qua_",r.rate,"_",d.rate,".rds"))
-  }
-  dev.off()
-}else{
-  pdf(paste0(outdir,"SIR_Qua_",r.rate,".pdf"))
-  for(iy in 1:length(d.vals)){
-    d.rate = d.vals[iy]
-    dats = rep_stochastic_coevolve(model = "SIR", bet = BE, init.infec = 10,
-                                   alpha.r = c(.005, r.rate, .005),
-                                   alpha.d = c(.05, d.rate, .05),
-                                   quarantine = T,
-                                   seed = sample(1000,1), n.sim = 10,
-                                   tmax = 1000)
-    saveRDS(dats,file=paste0(outdir,"SIR_Qua_",r.rate,"_",d.rate,".rds"))
-  }
-  dev.off()
-}
-
-
-
-
-#### try it out locally -- outdated ####
+#### can try it out locally  ####
 # stochastic_coevolve(tmax = 10, verbose = F)
 # stochastic_coevolve(tmax = 10, model = "SIR")
 # 
