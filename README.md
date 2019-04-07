@@ -1,2 +1,2 @@
 # CoEpiNet
-Codes for co-evolution of epidemics and social networks
+Simulation codes for co-evolution of epidemics and social networks
