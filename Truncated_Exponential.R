@@ -8,19 +8,6 @@ sam_texp <- function(n, rate, a=0, b=Inf){
   return(sams)
 }
 
-# # test it against a function found online
-# par(mfrow=c(1,2))
-# N = 10000; gam = 0.01
-# a.vals = c(0:9)
-# b.vals = c(5, 8, 10, 25, 36, 100, 300, 1000, 1e4, Inf)
-# for(ix in 1:length(a.vals)){
-#   a = a.vals[ix]; b = b.vals[ix]
-#   hist(TruncatedDistributions::rtexp(N, gam, a, b),
-#        main = paste("rate =", gam,"; Truncated within [",a, ",",b,"]"))
-#   hist(sam_texp(N, gam, a, b),
-#        main = paste("rate =", gam,"; Truncated within [",a, ",",b,"]"))
-# }
-# # seems to be doing the right thing
 
 # 2. a function to evaluate density of truncated exponential
 dtexp <- function(x, rate, a=0, b=Inf, log=F){
@@ -40,8 +27,8 @@ dtexp <- function(x, rate, a=0, b=Inf, log=F){
   }
 }
 
-# # try it out
+# # checking
 # x = sam_texp(20,0.5,1,7)
 # log(prod(TruncatedDistributions::dtexp(x,0.5,1,7)))
 # dtexp(x,0.5,1,7,log = T)
-# # seems to be working!!
+# # seems to be working
