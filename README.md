@@ -34,7 +34,7 @@ An example of simulated complete event data is in `ex3dat_5.rds`.
 The function `infer_miss_recov` in `inference_miss_recov.R` carries out inference from event data with missing recovery times. Example datasets are `coupled_6_miss50.rds` (50% missingness) and `coupled_6_miss100.rds` (100% missingness).
 
 To run the inference algorithm:
-```{r}
+```r
 source("./inference_miss_recov.R")
 pr = data.frame(count = rep(1,4), avg = c(0.05, 0.1, 0.005, 0.05)) # or some other prior settings
 miss_dats = readRDS("./coupled_6_miss50.rds") # or use "./coupled_6_miss100.rds"
@@ -44,7 +44,7 @@ inf.fil = infer_miss_recov(miss_dats, priors = pr, output.sams = 100,
 ```
 
 And to compare our proposed data augmentation sampler with rejection sampling and Metropolis-Hastings sampling:
-```{r}
+```r
 inf.rej = infer_miss_recov(miss_dats, priors = pr, output.sams = 100, 
                            samples = 1000, burn = 500, thin = 2, impute = "reject")
 inf.MH =  infer_miss_recov(miss_dats, priors = pr, output.sams = 100, 
@@ -75,7 +75,7 @@ bench::press(
 ```
 
 Another function `pipeline_miss_recov` in the same file goes through the following pipeline: generate missingness, conduct inference, and run diagonostics. For example, to generate 100% missing from the data in "ex3dat_5.rds" and then conduct inference using all three data augmentation samplers (proposed, rejection, MH) as well as compare them:
-```{r}
+```r
 source("./inference_miss_recov.R")
 res.pipe = pipeline_miss_recov("ex3dat_5, fpath = "./", interval = 7, miss_prop = 1, miss_model = "SIR",
                                 doMH = T, save_miss = F, pdfname = "pipeline_plots")
