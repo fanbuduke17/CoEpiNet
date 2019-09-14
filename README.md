@@ -57,7 +57,7 @@ infer.diag(inf.MH, method="MH",  plot=T)
 ```
 
 Also, to compare the run times of the proposed algorithm and rejection sampling:
-```{r}
+```r
 source("./inference_util.R")
 bp_res =
 bench::press(
