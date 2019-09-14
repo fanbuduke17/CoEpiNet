@@ -1,3 +1,9 @@
+---
+customjs:
+  - http://yihui.name/js/math-code.js
+  - http://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML
+---
+
 # CoEpiNet
 Codes for _Likelihood-based Inference for Partially Observed Epidemics on Dynamic Networks_
 
@@ -15,12 +21,6 @@ Codes for _Likelihood-based Inference for Partially Observed Epidemics on Dynami
 ## How to run simulations
 
 ### Simulate complete event data and estimate parameters
-
-<script src="//yihui.name/js/math-code.js"></script>
-<!-- Just one possible MathJax CDN below. You may use others. -->
-<script async
-  src="//mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML">
-</script>
 
 The function `stochastic_coevolve_infer2` in `sim_inference.R` simulates one realization of a temporal network epidemic process (it can be coupled or decoupled) and carried out maximum likelihood estimation or Bayesian estimation for the parameters `$\Theta = \{\beta, \gamma, \alpha_{SS},\alpha_{SI},\alpha_{II}, \omega_{SS},\omega_{SI},\omega_{II}\}$`.
 
