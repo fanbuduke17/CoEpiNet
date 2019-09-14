@@ -13,3 +13,6 @@ Codes for _Likelihood-based Inference for Partially Observed Epidemics on Dynami
 2. codes for running inference on real data
 
 ## How to run simulations
+```{r}
+rnorm(100)
+```
