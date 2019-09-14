@@ -14,5 +14,7 @@ Codes for _Likelihood-based Inference for Partially Observed Epidemics on Dynami
 
 ## How to run simulations
 ```{r}
-rnorm(100)
+siyy <- function(x){
+  sum(x^2)
+}
 ```
