@@ -11,7 +11,7 @@ Codes for _Likelihood-based Inference for Partially Observed Epidemics on Dynami
 
 ## Things **not** included
 1. real data (proprietary)
-2. codes for running inference on real data
+2. codes for inference on real data
 
 ## How to run simulations
 
@@ -21,14 +21,32 @@ The function `stochastic_coevolve_infer2` in `sim_inference.R` simulates one rea
 
 Another function `rep_stochastic_coevolve_infer` defined in the same file does the "simulate+infer" procedure repeatedly.
 
-Some examples of running simulations are included in `run_sim_inference.R`.
+Some examples of running simulations and complete data inference are included in `run_sim_inference.R`:
+
+ - Simulations with N=100 people, starting with an ER(100, 0.1) network
+ - Simulations with N=100 people, starting with a "hubnet" (one person is connected to all, and the rest form an ER(N-1, 0.1) network)
+ - Simulations with N=500 people, starting with an ER(500, 0.1) network
+
 
 ### Inference from partially observed epidemic events
 
 The function
 
+The run times of the Chewbacca algorithm and the rejection sampler for data augmentation are compared using the following codes
+
 ```{r}
-siyy <- function(x){
-  sum(x^2)
+source("./inference_util.R)
+bp_res =
+bench::press(
+  ix = c(1:length(recovers)),
+  {
+    bench::mark(
+      length(propose_recov_rej(lb=intervals$lb[ix],ub = intervals$ub[ix], recovers = recovers[[ix]],
+                                  events = miss1$events, nei_infec = nei_infec_miss)),
+      length(propose_recov_filter(lb=intervals$lb[ix],ub = intervals$ub[ix], recovers = recovers[[ix]],
+                           events = miss1$events, nei_infec = nei_infec_miss))
+    )
+  }
+ )
 }
 ```
