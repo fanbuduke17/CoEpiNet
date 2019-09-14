@@ -10,7 +10,6 @@
 # 4) calculate ESS and conduct Geweke diagnostics
 
 # preparations: loading stuff
-#setwd("~/Documents/EpiNet/")
 
 source("./inference_util.R")
 source("./pre_process.R")
@@ -20,7 +19,7 @@ source("./pre_process.R")
 pr = data.frame(count = rep(1,4), avg = c(0.02, 0.1, 0.004, 0.06))
 
 
-# 1. function to do Bayesian inference on data w/ recovery times missingness
+# 1. function to do Bayesian inference on data w/ missing recovery times
 # output/plot results every `output.sams` recorded samples
 # priors: data frame of vars `count` & `avg`
 # assume "quarantine" case!
@@ -38,7 +37,6 @@ infer_miss_recov <- function(dats, priors, init.params = NULL,
                              verbose = T, plot = T, output.sams = 100, 
                              samples = 1000, burn = 100, thin = 1,
                              impute = "filter", model="SIR", 
-                             #true.params = c(.03, .15, .005, 0.001, .005, .05, 0.1, .05),
                              timing = T, seed=42){
   if(timing){ time.st = Sys.time()}
   
@@ -214,59 +212,6 @@ infer_miss_recov <- function(dats, priors, init.params = NULL,
 }
 
 
-# # try it out
-# miss1 = readRDS("~/Documents/miss_recov.rds")
-# pr = data.frame(count = rep(1,4), avg = c(0.05, 0.1, 0.005, 0.05))
-# ## 1. use "filter"
-# pdf("./miss1_filter.pdf")
-# res.fil = infer_miss_recov(miss1, priors = pr, output.sams = 100, 
-#                            samples = 1000, burn = 100)
-# # time: 13.75 mins
-# dev.off()
-# ## 2. use "reject"
-# pdf("./miss1_reject.pdf")
-# res.rej = infer_miss_recov(miss1, priors = pr, output.sams = 100, 
-#                            samples = 1000, burn = 100,
-#                            impute = "rej")
-# # time: 11.27 mins
-# dev.off()
-# ## 3. use "MH"
-# pdf("./miss1_MH.pdf")
-# res.MH = infer_miss_recov(miss1, priors = pr, output.sams = 100, 
-#                            samples = 1000, burn = 100,
-#                            impute = "MH")
-# # time: 10.xx mins
-# dev.off()
-# 
-# 
-# # try it with ~50% missingness of recovery times
-# # from data ``coupled_4''
-# miss4 = readRDS("~/Documents/miss_recov50_coupled4.rds")
-# pr = data.frame(count = rep(1,4), avg = c(0.05, 0.1, 0.005, 0.05))
-# ## use "filter"
-# pdf("./miss4_filter.pdf")
-# res.fil = infer_miss_recov(miss4, priors = pr, output.sams = 100, 
-#                            samples = 1000, burn = 500, thin = 1)
-# # time: 26+ mins
-# dev.off()
-# # estimation of omega.II is VERY bad
-# # but that of gamma, etc. good
-# 
-# # 06/02/2019
-# # re-try `miss4`
-# # after debugging the `parse_augment2` function
-# miss4 = readRDS("~/Documents/miss_recov50_coupled4.rds")
-# pr = data.frame(count = rep(1,4), avg = c(0.05, 0.1, 0.005, 0.05))
-# pdf("./miss4_filter2.pdf")
-# res.fil = infer_miss_recov(miss4, priors = pr, output.sams = 100, 
-#                            samples = 1000, burn = 200, thin = 1)
-# # time: 22+ mins
-# dev.off()
-
-# Now much better...
-# alpha.SI and omega.SI somewhat imperfect
-# (on the edge of the CIs)
-
 
 
 # 2. the entire process function
@@ -327,75 +272,4 @@ pipeline_miss_recov <- function(datname, fpath = "~/Documents/",
   
   return(diag.dat)
 }
-
-
-# try it out
-# dat = readRDS("~/Documents/EpiNet_coupled_6.rds")
-# miss6 = miss_recovery(dat)
-# pdf("./miss6_filter.pdf")
-# res.fil = infer_miss_recov(miss6, priors = pr, output.sams = 100, 
-#                            samples = 1000, burn = 200)
-# # time: ~16min
-# dev.off()
-# 
-# # try another dataset
-# dat = readRDS("~/Documents/EpiNet_coupled_7.rds")
-# miss7 = miss_recovery(dat)
-# pr = data.frame(count = rep(1,4), avg = c(0.05, 0.1, 0.005, 0.05))
-# pdf("./miss7_MH_retry.pdf", width = 9, height = 6)
-# res.MH = infer_miss_recov(miss7, priors = pr, output.sams = 100, 
-#                            samples = 1000, burn = 200, impute = "MH")
-# # time: 
-# dev.off()
-# infer.diag(res.MH,"MH",T)
-
-# # use the original simulation and inference procedure here
-# dat = readRDS("~/Documents/EpiNet_coupled_13.rds")
-# miss13 = miss_recovery(dat)
-# pdf("./miss13_filter.pdf")
-# res.fil = infer_miss_recov(miss13, priors = pr, output.sams = 100, 
-#                            samples = 1000, burn = 100)
-# # time: ~16min
-# dev.off()
-# # OMG IT WORKED!!!!
-
-# # use coupled_13 for inference
-# trydat13 = pipeline_miss_recov("EpiNet_coupled_13",priors = pr, 
-#                                output.sams = 100, 
-#                                samples = 1000, burn = 200, 
-#                                plot=F, plot_pdf = T)
-# #saveRDS(trydat13,"tryday13.rds")
-
-
-# # then use coupled_6, but only take out ~50% recovery times
-# ## use the parse_augment2 function 
-# ## just to see the results 
-# trydat6 = pipeline_miss_recov("EpiNet_coupled_6",priors = pr, miss_prop = 0.5,
-#                                output.sams = 100, 
-#                                samples = 1000, burn = 200, 
-#                                plot=F, plot_pdf = T)
-# 
-# # 06/03/2019
-# # try coupled_6 again, with the debugged thing
-# # use the previous version of the function...
-# trydat6 = pipeline_miss_recov("EpiNet_coupled_6",priors = pr, miss_prop = 0.5,
-#                                output.sams = 100, 
-#                                samples = 1000, burn = 200, 
-#                                plot=F, plot_pdf = T)
-# # 06/03/2019
-# # try complete missingness
-# # use the modified function
-# trydat6_2 = pipeline_miss_recov("EpiNet_coupled_6",priors = pr, miss_prop = 1,
-#                                 output.sams = 100, 
-#                                 samples = 1000, burn = 200, 
-#                                 plot=F, pdfname = "coupled_6_100")
-# 
-# 
-# # 06/04/2019
-# # try 50% missingness with coupled_7
-# trydat7 = pipeline_miss_recov("EpiNet_coupled_7",priors = pr, miss_prop = 0.5,
-#                               output.sams = 100, 
-#                               samples = 1000, burn = 200, 
-#                               plot=F, pdfname = "coupled_7_50")
-
 
