@@ -8,6 +8,9 @@
 #    and update everybody's status until day of report
 # 3. output event log w/ missingness & status reports
 
+# 05/22/2019
+# add the true parameter values to the miss_recovery output!
+
 miss_recovery <- function(dat, interval = 7, miss_prop = 1, model = "SIR"){
   # `interval`: the regular period of status report
   # `miss_prop`: the proportion/probability of missing recovery times
@@ -55,26 +58,52 @@ miss_recovery <- function(dat, interval = 7, miss_prop = 1, model = "SIR"){
   
   # return new dataset and status report
   row.names(report) = as.character(report.times)
-  return(list(G0=G0, I0=I0, report.times=report.times, 
-              events=events, report = report))
+  
+  if("truth" %in% names(dat)){
+    return(list(G0=G0, I0=I0, report.times=report.times, 
+                events=events, report = report, 
+                truth = dat$truth))
+  }else{
+    cat("True parameters unavailable for this dataset!\n")
+    return(list(G0=G0, I0=I0, report.times=report.times, 
+                       events=events, report = report))
+  }
 }
 
-# try it out
-dats = readRDS("~/Documents/EpiNet_coupled_1.rds")
-miss1 = miss_recovery(dats)
-events.m = miss1$events
-events.o = dats$events
-sum(events.m$event==2)
-sum(events.o$event==2)
-nrow(events.o)
-nrow(events.m)
-## the row numbers checked out
-miss1$report.times
-miss1$report
-sum(miss1$report["14",]==1) # 17 sick up to 14 days
-events.o[max(which(events.o$time < 14)),] # preval=.17
-## prevalence checked out
+# # try it out
+# dats = readRDS("~/Documents/EpiNet_coupled_1.rds")
+# miss1 = miss_recovery(dats)
+# events.m = miss1$events
+# events.o = dats$events
+# sum(events.m$event==2)
+# sum(events.o$event==2)
+# nrow(events.o)
+# nrow(events.m)
+# ## the row numbers checked out
+# miss1$report.times
+# miss1$report
+# sum(miss1$report["14",]==1) # 17 sick up to 14 days
+# events.o[max(which(events.o$time < 14)),] # preval=.17
+# ## prevalence checked out
+# 
+# # save it
+# # 100% missing in recovery times
+# saveRDS(miss1, "~/Documents/miss_recov.rds")
 
-# save it
-# 100% missing in recovery times
-saveRDS(miss1, "~/Documents/miss_recov.rds")
+# # try out partially missing recovery times
+# # eg. 50%
+# dats = readRDS("~/Documents/EpiNet_coupled_4.rds")
+# miss4 = miss_recovery(dats, miss_prop = 0.5)
+# events.m = miss4$events
+# events.o = dats$events
+# sum(events.m$event==2)
+# sum(events.o$event==2)
+# nrow(events.o)
+# nrow(events.m)
+# miss4$report.times
+# miss4$report
+# sum(miss4$report["28",]==1) # 7 sick up to 28 days
+# events.o[max(which(events.o$time < 28)),] # preval=.07
+# # seems to be working well!
+# # save it
+# saveRDS(miss4, "~/Documents/miss_recov50_coupled4.rds")

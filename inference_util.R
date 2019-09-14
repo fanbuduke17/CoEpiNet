@@ -6,7 +6,8 @@ library(Matrix)
 #library(igraph)
 #library(ggplot2)
 
-source("~/Documents/EpiNet/Truncated_Exponential.R")
+# source("~/Documents/EpiNet/Truncated_Exponential.R")
+source("./Truncated_Exponential.R")
  
 # dats = readRDS("~/Documents/EpiNet_coupled_1.rds")
 # miss1 = readRDS("~/Documents/miss_recov.rds")
@@ -361,6 +362,9 @@ eval_interval_loglik <- function(dat, st, en, model="SIR", quarantine=T,
 # 2.3 a function that augments the observed data w/ imputed recoveryt times
 # and outputs event counts & all the summations
 # assume "quarantine" scenario
+# 05/21/2019
+# RIGHT NOW: disregard all the edge changes related to R people
+# just to make my life easier
 parse_augment <- function(G0, I0, events, recovers, model="SIR"){
   # dats: a list consisting of everything observed
   # recovers: a dataset w/ variables `time` & `per1`, all imputed recovery times
@@ -385,7 +389,9 @@ parse_augment <- function(G0, I0, events, recovers, model="SIR"){
   n.R = sum(events$event == 2) + nrow(recovers)
   C = rep(0,3); D = rep(0,3)
   
-  big.sums = numeric(8) # assume the case of "quarantine"
+  # FOR NOW
+  # assume the case of "quarantine"
+  big.sums = numeric(8) 
   
   # combine the two datasets to make a "complete" dataset
   # and order by ascending time
@@ -404,7 +410,6 @@ parse_augment <- function(G0, I0, events, recovers, model="SIR"){
     
     # update "big.sums"
     big.sums = big.sums + c(N.SI, N.I, Mmax-M, M) * del.t
-    
 
     z =  events$event[r]
     if (z==1){
@@ -463,8 +468,8 @@ parse_augment <- function(G0, I0, events, recovers, model="SIR"){
           # I-I type
           C[3] = C[3] + 1
           M[3] = M[3] + 1
-        }else{
-          # S-I type
+        }else if (epid[p1]!=-1 & epid[p2]!=-1){
+          # S-I type: neither is recovered
           C[2] = C[2] + 1
           M[2] = M[2] + 1
           N.SI = M[2]
@@ -481,7 +486,7 @@ parse_augment <- function(G0, I0, events, recovers, model="SIR"){
           # I-I type
           D[3] = D[3] + 1
           M[3] = M[3] - 1
-        }else{
+        }else if (epid[p1]!=-1 & epid[p2]!=-1){
           # S-I type
           D[2] = D[2] + 1
           M[2] = M[2] - 1
@@ -504,21 +509,198 @@ parse_augment <- function(G0, I0, events, recovers, model="SIR"){
   return(res)
 }
 
+
+# 05/23/2019
+# modify the `parse_augment` function: include R-related edge changes
+# 06/02/2019
+# debugged
+parse_augment2 <- function(G0, I0, events, recovers, model="SIR"){
+  # dats: a list consisting of everything observed
+  # recovers: a dataset w/ variables `time` & `per1`, all imputed recovery times
+  
+  N = nrow(G0); epid = rep(0,N)
+  adjmat =  G0; epid[I0] = 1
+  
+  susceptible = which(epid==0); infected = which(epid==1)
+  N.S = sum(epid==0); N.I = sum(epid==1)
+  if(model == "SIR"){ N.R = 0 }
+  Mmax = c(N.S*(N.S-1)/2, N.S * N.I, N.I*(N.I-1)/2)
+  M = c(nnzero(adjmat[susceptible,susceptible])/2, 
+        nnzero(adjmat[susceptible,infected]), 
+        nnzero(adjmat[infected,infected])/2)
+  N.SI = M[2]
+  
+  # data storage
+  n.E = sum(events$event == 1)
+  n.R = sum(events$event == 2) + nrow(recovers)
+  C = rep(0,3); D = rep(0,3)
+  
+  # FOR NOW
+  # assume the case of "quarantine"
+  big.sums = numeric(8) 
+  
+  # combine the two datasets to make a "complete" dataset
+  # and order by ascending time
+  events = events[,-c(5:6)]
+  recovers$per2 = NA
+  recovers$event = 2
+  recovers = recovers[,names(events)]
+  events = rbind(events, recovers)
+  events = events[order(events$time),]
+  
+  # parse through the augmented data
+  t.cur = 0
+  for(r in 1:nrow(events)){
+    t.next = events$time[r]
+    del.t = t.next - t.cur
+    
+    # update "big.sums"
+    big.sums = big.sums + c(N.SI, N.I, Mmax-M, M) * del.t
+    
+    z = events$event[r]
+    if (z==1){
+      # infection
+      p1 = events$per1[r]
+      # figure out neighborhood
+      I.p1 = nnzero(adjmat[p1, which(epid==1)])
+      S.p1 = nnzero(adjmat[p1, which(epid==0)])
+      # bookkeeping
+      epid[p1] = 1
+      N.S = N.S - 1
+      N.I = N.I + 1
+      # update counts
+      if(model=="SIR"){
+        R.p1 = nnzero(adjmat[p1, which(epid==-1)])
+        #Mmax = c((N.S+N.R)*(N.S+N.R-1)/2, (N.S+N.R) * N.I, N.I*(N.I-1)/2)
+        Mmax = c((N-N.I)*(N-N.I-1)/2, (N-N.I) * N.I, N.I*(N.I-1)/2)
+        M[1] = M[1] - S.p1 - R.p1
+        M[2] = M[2] + S.p1 + R.p1 - I.p1
+        M[3] = M[3] + I.p1
+        N.SI = N.SI + S.p1 - I.p1
+      }else{
+        Mmax = c(N.S*(N.S-1)/2, N.S * N.I, N.I*(N.I-1)/2)
+        M[1] = M[1] - S.p1
+        M[2] = M[2] + S.p1 - I.p1
+        M[3] = M[3] + I.p1
+        N.SI = M[2]
+      }
+    }else if (z==2){
+      # recovery
+      p1 = events$per1[r]
+      # figure out neighborhood
+      I.p1 = nnzero(adjmat[p1, which(epid==1)])
+      S.p1 = nnzero(adjmat[p1, which(epid==0)])
+      # bookkeeping
+      N.I = N.I - 1
+      if(model=="SIR"){
+        R.p1 = nnzero(adjmat[p1, which(epid==-1)])
+        epid[p1] = -1
+        N.R = N.R + 1
+        M[1] = M[1] + S.p1 + R.p1
+        M[2] = M[2] - S.p1 - R.p1 + I.p1
+        M[3] = M[3] - I.p1
+        #Mmax = c((N.S+N.R)*(N.S+N.R-1)/2, (N.S+N.R) * N.I, N.I*(N.I-1)/2)
+        Mmax = c((N-N.I)*(N-N.I-1)/2, (N-N.I) * N.I, N.I*(N.I-1)/2)
+        N.SI = N.SI - S.p1
+      }else{
+        epid[p1] = 0
+        N.S = N.S + 1
+        M[1] = M[1] + S.p1
+        M[2] = M[2] - S.p1 + I.p1
+        M[3] = M[3] - I.p1
+        Mmax = c(N.S*(N.S-1)/2, N.S * N.I, N.I*(N.I-1)/2)
+        N.SI = M[2]
+      }
+    }else{
+      # some edge stuff
+      p1 = events$per1[r]
+      p2 = events$per2[r]
+      ## NEED SOME KIND OF CODING HERE ##
+      ## TO MARK RECONNECT/DISCONNECT  ##
+      ##                               ##
+      if(z %in% c(3:5)){
+        # reconnection
+        adjmat[p1,p2] = 1; adjmat[p2,p1] = 1
+        # bookkeeping
+        if (epid[p1]!=1 & epid[p2]!=1){
+          # S-S/S-R/R-R type
+          C[1] = C[1] + 1
+          M[1] = M[1] + 1
+        }else if (epid[p1]==1 & epid[p2]==1){
+          # I-I type
+          C[3] = C[3] + 1
+          M[3] = M[3] + 1
+        }else if (epid[p1]!=-1 & epid[p2]!=-1){
+          # S-I type: neither is recovered
+          C[2] = C[2] + 1
+          M[2] = M[2] + 1
+          N.SI = N.SI + 1
+        }else{
+          # R-I type
+          C[2] = C[2] + 1
+          M[2] = M[2] + 1
+        }
+      }else{
+        # disconnection
+        adjmat[p1,p2] = 0; adjmat[p2,p1] = 0
+        # bookkeeping
+        if (epid[p1]!=1 & epid[p2]!=1){
+          # S-S/S-R/R-R type
+          D[1] = D[1] + 1
+          M[1] = M[1] - 1
+        }else if (epid[p1]==1 & epid[p2]==1){
+          # I-I type
+          D[3] = D[3] + 1
+          M[3] = M[3] - 1
+        }else if (epid[p1]!=-1 & epid[p2]!=-1){
+          # S-I type
+          D[2] = D[2] + 1
+          M[2] = M[2] - 1
+          N.SI = N.SI - 1
+        }else{
+          # R-I type
+          D[2] = D[2] + 1
+          M[2] = M[2] - 1
+        }
+      }
+      
+    }
+    # report progress
+    # cat("Processing augmented dataset...", 
+    #     r/nrow(events),"\r")
+    
+    t.cur = t.next
+    
+  }
+  #cat("\nDone.\n")
+  
+  res = list(event.counts = c(n.E, n.R, C, D), big.sums = big.sums)
+  
+  return(res)
+}
+
+
 # # try it out
+# nei_infec_miss = get_nei_infection(miss7$G0, miss7$events, 
+#                                    miss7$report, miss7$report.times)
+# MR = get_miss_recov(miss7$report, miss7$report.times, miss7$events)
 # intervals = MR$intervals; recovers = MR$recover
 # persons = NULL; times = NULL
 # for(ix in 1:length(recovers)){
 #   recovs = recovers[[ix]]
 #   imputed = propose_recov_filter(lb=intervals$lb[ix],ub = intervals$ub[ix], recovers = recovs,
-#                               events = miss1$events, nei_infec = nei_infec_miss)
+#                               events = miss7$events, nei_infec = nei_infec_miss, gam = 0.15)
 #   cat("For interval [",intervals$lb[ix],",",intervals$ub[ix],"]:\n",
 #       "To recover", recovs, "\n",
 #       imputed,"\n")
 #   times = c(times, imputed); persons = c(persons, recovs)
 # }
 # recover.dat = data.frame(time = times, per1 = persons)
-# parse_augment(miss1$G0, miss1$I0, miss1$events, recover.dat)
+# parse_augment(miss7$G0, miss7$I0, miss7$events, recover.dat)
 # # seems to work! different imputations yield different suff.stats
+# parse_augment2(miss7$G0, miss7$I0, miss7$events, recover.dat)
+# # the uncertainty of recovery times impact the estimate of alpha.SS and omega.SS
+# # way too much!
 
 
 
@@ -635,7 +817,7 @@ get_nei_infection <- function(G0, events, report, times, subset=NULL){
 
 
 # 2.3 propose recovery times for a given time interval
-# 2.3.a: propose times from TE and reject if not consistent with infection trajectory
+# 2.3.a: propose times from TE and keep rejecting if not consistent with infection trajectory
 propose_recov_rej <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
   
   st = min(which(events$time > lb)); en = max(which(events$time <= ub))
@@ -702,8 +884,64 @@ propose_recov_rej <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
 # }
 # not as slow as expected for this particular example
 
+# 2.3.b: propose times from TE and keep the previous sample if not consistent with infection trajectory
+# return something if it is viable, otherwise return a vector of NA's
+propose_recov_MH <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
+  
+  st = min(which(events$time > lb)); en = max(which(events$time <= ub))
+  
+  # pull up infection log in this interval 
+  events.infec = events[st:en,]
+  events.infec = events.infec[events.infec$event == 1,c("time","per1")]
+  
+  # propose candicate times
+  cands = sam_texp(length(recovers), gam, 0, ub-lb) + lb
+  
+  #cat("Interval: [",lb,",",ub,"]\n")
+  #cat("To recover:",recovers,"\n")
+  #cat("infection log:\n")
+  #print(events.infec)
+  #cat("Proposed recovery times:\n",cands,"\n")
+  
+  # a sub-function for consistency-checking
+  check_consist <- function(cands){
+    for(r in 1:nrow(events.infec)){
+      p1 = events.infec$per1[r]
+      # check self: can't recover before infection
+      if(p1 %in% recovers){
+        t = events.infec$time[r]
+        if(cands[recovers == p1] <= t){
+          return(FALSE)
+        }
+      }
+      # then check neighborhood
+      nei = nei_infec[[as.character(p1)]]
+      poi = recovers[recovers %in% nei]
+      if(length(poi)==length(nei)){
+        t = events.infec$time[r]
+        poi.t = cands[recovers %in% poi]
+        if(all(poi.t <= t)){
+          return(FALSE)
+        }
+      }
+    }
+    return(TRUE)
+  }
+  
+  # if no infection cases to accommodate at all, directly return the proposal
+  if(nrow(events.infec)==0){
+    return(cands)
+  }
+  
+  # otherwise, return cands only if they are consistent with observed data
+  if(check_consist(cands)){
+    return(cands)
+  }else{
+    return(rep(NA, length(recovers)))
+  }
+}
 
-# 2.3.b: filter through each infected person's neighborhood to ensure consistency
+# 2.3.c: filter through each infected person's neighborhood to ensure consistency
 propose_recov_filter <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
   
   st = min(which(events$time > lb)); en = max(which(events$time <= ub))
@@ -773,8 +1011,13 @@ propose_recov_filter <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
 #   }
 # )
 # 
-# bp_res %>% dplyr::select(ix, min, median, mem_alloc)
-# unlist(bp_res$result)
+# bp_tab = bp_res %>% dplyr::select(ix, min, median)
+# bp_tab$num_recov = unlist(bp_res$result)
+# bp_tab$method = rep(c("rejection","domain"),5)
+# bp_tab$min = as.character(bp_tab$min)
+# bp_tab$median = as.character(bp_tab$median)
+# library(xtable)
+# xtable(bp_tab)
 # ## not much difference;
-# ## but when #(imputation) is big or contraints are complex, 
+# ## but when #(imputation) is big or contraints are complex,
 # ## the second function is more efficient
