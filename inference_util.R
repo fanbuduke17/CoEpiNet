@@ -1,16 +1,12 @@
 # 05/15/2019
-# utility functions for inference
-# on incomplete data
+# utility functions for inference on incomplete data
 
 library(Matrix)
 #library(igraph)
 #library(ggplot2)
 
-# source("~/Documents/EpiNet/Truncated_Exponential.R")
 source("./Truncated_Exponential.R")
  
-# dats = readRDS("~/Documents/EpiNet_coupled_1.rds")
-# miss1 = readRDS("~/Documents/miss_recov.rds")
 
 # 1. utility functions for evaluating likelihood
 # 1.1 trace system status to a given time point
@@ -22,8 +18,6 @@ obtain_system <- function(G0, I0, events, t.obs,
     cat("Required time out of range, use tmax =",tmax, "instead.\n")
     t.obs = tmax
   }
-  #event.types = unique(events$event)
-  #quarantine = !(all(event.types %in% c(1:4)))
   rowmax = min(which(events$time >= t.obs))
   
   N = nrow(G0); epid = rep(0,N)
@@ -125,19 +119,11 @@ obtain_system <- function(G0, I0, events, t.obs,
 }
 
 
-# ## try this
-# dat = readRDS("~/Documents/EpiNet_coupled_1.rds")
-# res = obtain_system(dat$G0, dat$I0, dat$events, 
-#                     t.obs = 10, quarantine = T)
-# res$epid
-# res$stats
-# # seems to work!
-
 # 1.2 evaluate the log likelihood of events in a given interval [st,en)
 ## use log-likelihood for better computation accuracy
 ## only deal with the coupled case for now
-## 05/09/2019: ##
-## Augmentation: calculate important stats (for inference) as well
+## 05/09/2019
+## augmentation: calculate important stats (for inference) as well
 eval_interval_loglik <- function(dat, st, en, model="SIR", quarantine=T,
                                  bet = 0.03, gam = 0.15, 
                                  alpha.r = c(.005, 0.001, .005),
@@ -217,10 +203,6 @@ eval_interval_loglik <- function(dat, st, en, model="SIR", quarantine=T,
     t.next = events$time[r]
     del.t = t.next - t.cur
     
-    # need to add the time interval term (for correct Poisson rate)
-    ## DISCARDED: it's fine to use the density function as lik
-    ## When exact event times are known, the exponential joint dens is better/more accurate
-    #logsum = logsum + log(del.t)
     
     # update "big.sums"
     if(cal_stats){
@@ -274,9 +256,7 @@ eval_interval_loglik <- function(dat, st, en, model="SIR", quarantine=T,
       # some edge stuff
       p1 = events$per1[r]
       p2 = events$per2[r]
-      ## NEED SOME KIND OF CODING HERE ##
-      ## TO MARK RECONNECT/DISCONNECT  ##
-      ##                               ##
+
       if(z %in% c(3:5)){
         # reconnection
         adjmat[p1,p2] = 1; adjmat[p2,p1] = 1
@@ -328,12 +308,6 @@ eval_interval_loglik <- function(dat, st, en, model="SIR", quarantine=T,
     
     t.cur = t.next
     
-    # error checking
-    # if(any(c(M,Mmax-M) < 0)){
-    #   cat("Negative edge counts:\n",
-    #       M, Mmax-M,"\n",
-    #       "Occurred at row", r, "event type =", z,"\n")
-    # }
   }
   cat("\nDone.\n")
   cat("Event counts:",c(n.E, n.R, C, D),"\n",
@@ -350,29 +324,16 @@ eval_interval_loglik <- function(dat, st, en, model="SIR", quarantine=T,
   return(res)
 }
 
-# ## try it
-# eval_interval_loglik(dat, 0.3, 7)
-# eval_interval_loglik(dat, 10, 15)
-# eval_interval_loglik(dat, 20, 40)
-# eval_interval_loglik(dat, 0, 40) # works with entire data too
-# # eval_interval_loglik(dat, 0, 10) +
-# # eval_interval_loglik(dat, 10, 20) +
-# # eval_interval_loglik(dat, 20, 35)
 
-# 2.3 a function that augments the observed data w/ imputed recoveryt times
+# 2.3 a function that augments the observed data w/ imputed recovery times
 # and outputs event counts & all the summations
-# assume "quarantine" scenario
-# 05/21/2019
-# RIGHT NOW: disregard all the edge changes related to R people
-# just to make my life easier
+# assume a coupled process
+# **deprecated version**
+# it disregards all the edge changes related to R people
 parse_augment <- function(G0, I0, events, recovers, model="SIR"){
   # dats: a list consisting of everything observed
   # recovers: a dataset w/ variables `time` & `per1`, all imputed recovery times
-  
-  # the basics
-  # G0 = dats$G0; I0 = dats$I0
-  # events = dats$events
-  
+
   N = nrow(G0); epid = rep(0,N)
   adjmat =  G0; infected =  I0; epid[infected] = 1
   
@@ -390,7 +351,7 @@ parse_augment <- function(G0, I0, events, recovers, model="SIR"){
   C = rep(0,3); D = rep(0,3)
   
   # FOR NOW
-  # assume the case of "quarantine"
+  # assume the case of "quarantine" - coupled case
   big.sums = numeric(8) 
   
   # combine the two datasets to make a "complete" dataset
@@ -453,9 +414,7 @@ parse_augment <- function(G0, I0, events, recovers, model="SIR"){
       # some edge stuff
       p1 = events$per1[r]
       p2 = events$per2[r]
-      ## NEED SOME KIND OF CODING HERE ##
-      ## TO MARK RECONNECT/DISCONNECT  ##
-      ##                               ##
+     
       if(z %in% c(3:5)){
         # reconnection
         adjmat[p1,p2] = 1; adjmat[p2,p1] = 1
@@ -511,7 +470,8 @@ parse_augment <- function(G0, I0, events, recovers, model="SIR"){
 
 
 # 05/23/2019
-# modify the `parse_augment` function: include R-related edge changes
+# the actually used version
+# modify the `parse_augment` function to include R-related edge changes
 # 06/02/2019
 # debugged
 parse_augment2 <- function(G0, I0, events, recovers, model="SIR"){
@@ -536,7 +496,7 @@ parse_augment2 <- function(G0, I0, events, recovers, model="SIR"){
   C = rep(0,3); D = rep(0,3)
   
   # FOR NOW
-  # assume the case of "quarantine"
+  # assume the coupled case 
   big.sums = numeric(8) 
   
   # combine the two datasets to make a "complete" dataset
@@ -615,9 +575,7 @@ parse_augment2 <- function(G0, I0, events, recovers, model="SIR"){
       # some edge stuff
       p1 = events$per1[r]
       p2 = events$per2[r]
-      ## NEED SOME KIND OF CODING HERE ##
-      ## TO MARK RECONNECT/DISCONNECT  ##
-      ##                               ##
+  
       if(z %in% c(3:5)){
         # reconnection
         adjmat[p1,p2] = 1; adjmat[p2,p1] = 1
@@ -680,29 +638,6 @@ parse_augment2 <- function(G0, I0, events, recovers, model="SIR"){
 }
 
 
-# # try it out
-# nei_infec_miss = get_nei_infection(miss7$G0, miss7$events, 
-#                                    miss7$report, miss7$report.times)
-# MR = get_miss_recov(miss7$report, miss7$report.times, miss7$events)
-# intervals = MR$intervals; recovers = MR$recover
-# persons = NULL; times = NULL
-# for(ix in 1:length(recovers)){
-#   recovs = recovers[[ix]]
-#   imputed = propose_recov_filter(lb=intervals$lb[ix],ub = intervals$ub[ix], recovers = recovs,
-#                               events = miss7$events, nei_infec = nei_infec_miss, gam = 0.15)
-#   cat("For interval [",intervals$lb[ix],",",intervals$ub[ix],"]:\n",
-#       "To recover", recovs, "\n",
-#       imputed,"\n")
-#   times = c(times, imputed); persons = c(persons, recovs)
-# }
-# recover.dat = data.frame(time = times, per1 = persons)
-# parse_augment(miss7$G0, miss7$I0, miss7$events, recover.dat)
-# # seems to work! different imputations yield different suff.stats
-# parse_augment2(miss7$G0, miss7$I0, miss7$events, recover.dat)
-# # the uncertainty of recovery times impact the estimate of alpha.SS and omega.SS
-# # way too much!
-
-
 
 # 2. Impute missing recovery times on intervals with missingness
 # 2.1 a function to obtain time intervals to do imputation on, and involved individuals
@@ -740,26 +675,18 @@ get_miss_recov <- function(report, times, events){
   return(list(intervals = data.frame(lb=lbs, ub=ubs), recover = miss_recov))
 }
 
-# ## try it out
-# miss1 = readRDS("~/Documents/miss_recov.rds")
-# MR = get_miss_recov(miss1$report, miss1$report.times, miss1$events)
-
 
 # 2.2 a function to obtain the INFECTED neighbors AT TIME OF INFECTION for each individual
 # and return a list for permanent storage
 # "Infected": up to the latest status report + new infections since then
 # option: only return results for a subset of individuals
-
 get_nei_infection <- function(G0, events, report, times, subset=NULL){
   adjmat = G0
   events = events[events$event != 2,]
   nei_infec = list()
   new_infecs = NULL
   lb = 0
-  # subsetting if required
-  # if(!is.null(subset)){
-  #   events = events[(events$per1 %in% subset | events$per2 %in% subset,]
-  # }
+ 
   # updat adjmat on the fly
   # and record whenever a POI gets infected
   for(r in 1:nrow(events)){
@@ -807,17 +734,9 @@ get_nei_infection <- function(G0, events, report, times, subset=NULL){
 }
 
 
-# # try it out
-# nei_infec_full = get_nei_infection(dats$G0,dats$events, miss1$report,miss1$report.times)
-# #nei_infec_full50 = get_nei_infection(dats$G0,dats$events, subset = c(1:50))
-# nei_infec_miss = get_nei_infection(miss1$G0, miss1$events, miss1$report,miss1$report.times)
-# nei_infec_miss50 = get_nei_infection(miss1$G0, miss1$events, miss1$report, miss1$report.times, subset = c(1:50))
-# length(nei_infec_full); length(nei_infec_miss)
-# # debugged!
-
 
 # 2.3 propose recovery times for a given time interval
-# 2.3.a: propose times from TE and keep rejecting if not consistent with infection trajectory
+# 2.3.a "REJECT": propose times from TE and keep rejecting if not consistent with infection trajectory
 propose_recov_rej <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
   
   st = min(which(events$time > lb)); en = max(which(events$time <= ub))
@@ -875,16 +794,8 @@ propose_recov_rej <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
   return(cands)
 }
 
-# try it out
-# intervals = MR$intervals; recovers = MR$recover
-# for(ix in 1:length(recovers)){
-#   imputed = propose_recov_rej(lb=intervals$lb[ix],ub = intervals$ub[ix], recovers = recovers[[ix]],
-#                     events = miss1$events, nei_infec = nei_infec_miss)
-#   cat("For interval [",intervals$lb[ix],",",intervals$ub[ix],"]:\n",imputed,"\n")
-# }
-# not as slow as expected for this particular example
 
-# 2.3.b: propose times from TE and keep the previous sample if not consistent with infection trajectory
+# 2.3.b "MH": propose times from TE and keep the previous sample if not consistent with infection trajectory
 # return something if it is viable, otherwise return a vector of NA's
 propose_recov_MH <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
   
@@ -941,7 +852,7 @@ propose_recov_MH <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
   }
 }
 
-# 2.3.c: filter through each infected person's neighborhood to ensure consistency
+# 2.3.c "CHEWBACCA": filter through each infected person's neighborhood to ensure consistency
 propose_recov_filter <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
   
   st = min(which(events$time > lb)); en = max(which(events$time <= ub))
@@ -988,16 +899,9 @@ propose_recov_filter <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
   return(cands)
 }
 
-# # try it out
-# intervals = MR$intervals; recovers = MR$recover
-# for(ix in 1:length(recovers)){
-#   imputed = propose_recov_filter(lb=intervals$lb[ix],ub = intervals$ub[ix], recovers = recovers[[ix]],
-#                               events = miss1$events, nei_infec = nei_infec_miss)
-#   cat("For interval [",intervals$lb[ix],",",intervals$ub[ix],"]:\n",imputed,"\n")
-# }
 
 
-# ## bench mark the two functions
+# ## bench mark the two functions (REJECT v.s. CHEWBACCA)
 # bp_res =
 # bench::press(
 #   ix = c(1:length(recovers)),
@@ -1020,4 +924,4 @@ propose_recov_filter <- function(lb, ub, recovers, events, nei_infec, gam=0.2){
 # xtable(bp_tab)
 # ## not much difference;
 # ## but when #(imputation) is big or contraints are complex,
-# ## the second function is more efficient
+# ## the 'filter' function is more efficient
