@@ -15,6 +15,12 @@ Codes for _Likelihood-based Inference for Partially Observed Epidemics on Dynami
 
 ## How to run things
 
+### Demo and visualization
+
+One of our motivations is that social intervention ("isolation") can help contain disease spread. For a particular contagion, if we enforce a simple non-pharmaceutical intervention by, say, "encouraging" people to avoid contact with their sick friends, or, asking sick people to stay home as much as possible, then usually we see a decrease in overall infection counts (peak infection cases and/or the final epidemic size). 
+
+Run `toy_example_plots.R` to see some example epidemic processes on a small community with `20` individuals.
+
 ### Simulate complete event data and estimate parameters
 
 The function `stochastic_coevolve_infer2` in `sim_inference.R` simulates one realization of a temporal network epidemic process (it can be coupled or decoupled) and carried out maximum likelihood estimation or Bayesian estimation for the parameters.
