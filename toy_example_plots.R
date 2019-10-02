@@ -1,5 +1,8 @@
 # 04/06/2019
 
+# 10/02/2019
+# modifications made s.t. all healthy people behave quivalently socially
+
 #### TOY EXAMPLE ####
 ## dynamically plot network structure
 
@@ -67,7 +70,7 @@ stochastic_coevolve_d <- function(N=200, tmax=100,
   ## and keep track of plotting times
   if(!is.null(d.int)){
     par(mar=c(1,1,1,2))
-    title = paste("Time:",0)
+    title = paste("Day:",0)
     g.cur = graph_from_adjacency_matrix(adjmat, mode = "undirected")
     lo = layout_in_circle(g.cur)
     vcol = rep("floralwhite",N)
@@ -92,16 +95,28 @@ stochastic_coevolve_d <- function(N=200, tmax=100,
   t.cur = 0
   if(quarantine){
     N.c = numeric(3); N.d = numeric(3)
-    adjmat.ss = adjmat[susceptible,susceptible]
-    N.c[1] = nnzero(adjmat.ss)/2
-    N.d[1] = N.S * (N.S - 1)/2 - N.c[1]
-    adjmat.si = adjmat[susceptible,infected]
-    N.c[2] = nnzero(adjmat.si)
-    N.d[2] = N.S * N.I - N.c[2]
     adjmat.ii = adjmat[infected,infected]
     N.c[3] = nnzero(adjmat.ii)/2
     N.d[3] = N.I * (N.I - 1)/2 - N.c[3]
-    
+    # both need this:
+    adjmat.si = adjmat[susceptible,infected]
+    if(model=="SIR"){
+      recovered = NULL; N.R = 0
+      adjmat.rs = adjmat[union(susceptible,recovered), union(susceptible,recovered)]
+      N.c[1] = nnzero(adjmat.rs)/2
+      N.d[1] = N.S * (N.S - 1)/2 - N.c[1]
+      adjmat.ri = adjmat.si
+      N.c[2] = nnzero(adjmat.ri)
+      N.d[2] = N.S * N.I - N.c[2]
+    }else{
+      adjmat.ss = adjmat[susceptible,susceptible]
+      N.c[1] = nnzero(adjmat.ss)/2
+      N.d[1] = N.S * (N.S - 1)/2 - N.c[1]
+      
+      N.c[2] = nnzero(adjmat.si)
+      N.d[2] = N.S * N.I - N.c[2]
+    }
+    # at the start: N.R = 0, so this works
     N.SI = N.c[2]
   }else{
     N.c = nnzero(adjmat)/2
@@ -135,60 +150,79 @@ stochastic_coevolve_d <- function(N=200, tmax=100,
     # 2.1 deal with network change
     if(quarantine){
       z = sample(8, 1, prob = ratios)
-      ## NEED TO FILL OUT z==3:8 ##
-      
+  
       if(z==3){
-        # reconnect a random S-S pair
-        num.dis = (N.S - 1) - rowSums(adjmat.ss)
-        from.ind = sample(N.S,1,prob = num.dis); from = susceptible[from.ind]
-        to.cands = which(adjmat.ss[from.ind,]==0)
+        # reconnect a random S-S/S-R/R-R pair
+        if(model == "SIS"){
+          num.dis = (N.S - 1) - rowSums(adjmat.ss)
+          from.ind = sample(N.S,1,prob = num.dis); from = susceptible[from.ind]
+          to.cands = which(adjmat.ss[from.ind,]==0)
+        }else{
+          num.dis = (N.S + N.R - 1) - rowSums(adjmat.rs)
+          from.ind = sample(N.S + N.R, 1, prob = num.dis); from = union(susceptible, recovered)[from.ind]
+          to.cands = which(adjmat.rs[from.ind,]==0)
+        }
         to.cands = to.cands[to.cands!=from.ind]
         if(length(to.cands) == 1){
           to.ind = to.cands
         }else{
           to.ind = sample(to.cands,1)
         }
-        to = susceptible[to.ind]
-        adjmat.ss[as.integer(from.ind),as.integer(to.ind)] = 1
-        adjmat.ss[as.integer(to.ind),as.integer(from.ind)] = 1
+        if(model == "SIS"){
+          to = susceptible[to.ind]
+          adjmat.ss[as.integer(from.ind),as.integer(to.ind)] = 1
+          adjmat.ss[as.integer(to.ind),as.integer(from.ind)] = 1
+          msg = paste0("reconnect an S-S pair, (",from,",",to,")")
+        }else{
+          to = union(susceptible, recovered)[to.ind]
+          adjmat.rs[as.integer(from.ind),as.integer(to.ind)] = 1
+          adjmat.rs[as.integer(to.ind),as.integer(from.ind)] = 1
+          msg = paste0("reconnect an S-S/S-R/R-R pair, (",from,",",to,")")
+        }
         adjmat[as.integer(from),as.integer(to)] = 1
         adjmat[as.integer(to),as.integer(from)] = 1
         N.c[1] = N.c[1] + 1; N.d[1] = N.d[1] - 1
-        
-        msg = paste0("reconnect an S-S pair, (",from,",",to,")")
       }
       if(z==4){
-        # reconnect a random S-I pair
-        if(N.S == 1 | N.I == 1){
-          if(N.S == 1){
-            if(N.I == 1){
-              # only one possible S-I pair
-              from = susceptible; to = infected
-            }else{
-              # N.S == 1 but N.I != 1
-              from = susceptible
-              to.ind = sample(which(adjmat.si==0),1); to = infected[to.ind]
-            }
-          }else{
-            # N.S != 1 but N.I == 1
+        # reconnect a random S-I/R-I pair
+        if(model == "SIS"){
+          if (N.S == 1){
+            from = susceptible
+            to.ind = sample(which(adjmat.si==0),1); to = infected[to.ind]
+          }else if (N.I == 1){
             num.dis = N.I - adjmat.si
             from.ind = sample(N.S,1,prob = num.dis); from = susceptible[from.ind]
             to = infected
+          }else{
+            num.dis = N.I - rowSums(adjmat.si)
+            from.ind = sample(N.S,1,prob = num.dis); from = susceptible[from.ind]
+            to.ind = sample(which(adjmat.si[from.ind,]==0),1); to = infected[to.ind]
           }
+          msg = paste0("reconnect an S-I pair, (",from,",",to,").")
         }else{
-          # N.S != 1 and N.I != 1
-          num.dis = N.I - rowSums(adjmat.si)
-          from.ind = sample(N.S,1,prob = num.dis); from = susceptible[from.ind]
-          to.ind = sample(which(adjmat.si[from.ind,]==0),1); to = infected[to.ind]
+          N.SR = N.S + N.R; sus.recov = union(susceptible, recovered)
+          if (N.SR == 1){
+            from = sus.recov
+            to.ind = sample(which(adjmat.ri==0),1); to = infected[to.ind]
+          }else if (N.I == 1){
+            num.dis = N.I - adjmat.ri
+            from.ind = sample(N.SR,1,prob = num.dis); from = sus.recov[from.ind]
+            to = infected
+          }else{
+            num.dis = N.I - rowSums(adjmat.ri)
+            from.ind = sample(N.SR,1,prob = num.dis); from = sus.recov[from.ind]
+            to.ind = sample(which(adjmat.ri[from.ind,]==0),1); to = infected[to.ind]
+          }
+          msg = paste0("reconnect an S-I/R-I pair, (",from,",",to,").")
         }
         adjmat[as.integer(from),as.integer(to)] = 1
         adjmat[as.integer(to),as.integer(from)] = 1
         adjmat.si = adjmat[susceptible,infected]
+        N.SI = nnzero(adjmat.si)
+        
+        if(model == "SIR"){ adjmat.ri = adjmat[sus.recov,infected] }
         
         N.c[2] = N.c[2] + 1; N.d[2] = N.d[2] - 1
-        N.SI = N.c[2]
-        
-        msg = paste0("reconnect an S-I pair, (",from,",",to,").")
       }
       if(z==5){
         # reconnect a random I-I pair
@@ -211,67 +245,88 @@ stochastic_coevolve_d <- function(N=200, tmax=100,
         msg = paste0("reconnect an I-I pair, (",from,",",to,").")
       }
       if(z==6){
-        # disconnect a random S-S pair
+        # disconnect a random S-S/R-S/R-R pair
         dis.ind = sample(N.c[1], 1) 
-        from.ind = adjmat.ss@i[dis.ind] + 1; to.ind = adjmat.ss@j[dis.ind] + 1
-        adjmat.ss[as.integer(from.ind),as.integer(to.ind)] = 0
-        adjmat.ss[as.integer(to.ind),as.integer(from.ind)] = 0
-        
-        from = susceptible[from.ind]; to = susceptible[to.ind]
+        if(model == "SIS"){
+          from.ind = adjmat.ss@i[dis.ind] + 1; to.ind = adjmat.ss@j[dis.ind] + 1
+          adjmat.ss[as.integer(from.ind),as.integer(to.ind)] = 0
+          adjmat.ss[as.integer(to.ind),as.integer(from.ind)] = 0
+          
+          from = susceptible[from.ind]; to = susceptible[to.ind]
+          
+          msg = paste0("disconnect an S-S pair, (",from,",",to,").")
+        }else{
+          sus.recov = union(susceptible, recovered)
+          from.ind = adjmat.rs@i[dis.ind] + 1; to.ind = adjmat.rs@j[dis.ind] + 1
+          adjmat.rs[as.integer(from.ind),as.integer(to.ind)] = 0
+          adjmat.rs[as.integer(to.ind),as.integer(from.ind)] = 0
+          
+          from = sus.recov[from.ind]; to = sus.recov[to.ind]
+          
+          msg = paste0("disconnect an S-S/S-R/R-R pair, (",from,",",to,").")
+        }
         adjmat[as.integer(from),as.integer(to)] = 0
         adjmat[as.integer(to),as.integer(from)] = 0
         
         N.c[1] = N.c[1] - 1; N.d[1] = N.d[1] + 1
-        
-        # ## sometimes from/to is just empty... check it out
-        # if(length(from)!=1){
-        #   stop("from.ind = ", from.ind, 
-        #        " but susceptible length is ", length(susceptible),
-        #        " N.c[1] =", N.c[1], " dis.ind =", dis.ind, 
-        #        " while adjmat.ss@i has length ", length(adjmat.ss@i))
-        # }
-        # ##
-        
-        msg = paste0("disconnect an S-S pair, (",from,",",to,").")
       }
       if(z==7){
-        # disconnect a random S-I pair
-        dis.ind = sample(N.c[2], 1)
-        
-        if(N.S == 1 | N.I == 1){
-          if(N.S == 1){
-            if(N.I == 1){
-              # only one possible S-I pair
-              from = susceptible; to = infected
-            }else{
-              # N.S == 1 but N.I != 1
-              from = susceptible
-              to.ind = sample(which(adjmat.si==1),1); to = infected[to.ind]
-            }
-          }else{
-            # N.S != 1 but N.I == 1
+        # disconnect a random S-I/R-I pair
+        if(model == "SIS"){
+          if (N.S == 1){
+            from = susceptible
+            to.ind = sample(which(adjmat.si==1),1); to = infected[to.ind]
+            adjmat[as.integer(from),as.integer(to)] = 0
+            adjmat[as.integer(to),as.integer(from)] = 0
+            adjmat.si = adjmat[susceptible,infected]
+          }else if (N.I == 1){
             num.con = adjmat.si
             from.ind = sample(N.S,1,prob = num.con); from = susceptible[from.ind]
             to = infected
+            adjmat[as.integer(from),as.integer(to)] = 0
+            adjmat[as.integer(to),as.integer(from)] = 0
+            adjmat.si = adjmat[susceptible,infected]
+          }else{
+            dis.ind = sample(N.c[2], 1)
+            from = adjmat.si@i[dis.ind] + 1; to = adjmat.si@j[dis.ind] + 1
+            adjmat.si[as.integer(from),as.integer(to)] = 0
+            
+            from = susceptible[from]; to = infected[to]
+            adjmat[as.integer(from),as.integer(to)] = 0
+            adjmat[as.integer(to),as.integer(from)] = 0
           }
-          adjmat[as.integer(from),as.integer(to)] = 0
-          adjmat[as.integer(to),as.integer(from)] = 0
-          adjmat.si = adjmat[susceptible,infected]
+          msg = paste0("disconnect an S-I pair, (",from,",",to,").")
         }else{
-          # N.S != 1 and N.I != 1
-          dis.ind = sample(N.c[2], 1)
-          from = adjmat.si@i[dis.ind] + 1; to = adjmat.si@j[dis.ind] + 1
-          adjmat.si[as.integer(from),as.integer(to)] = 0
-          
-          from = susceptible[from]; to = infected[to]
-          adjmat[as.integer(from),as.integer(to)] = 0
-          adjmat[as.integer(to),as.integer(from)] = 0
+          N.SR = N.S + N.R; sus.recov = union(susceptible, recovered)
+          if (N.SR == 1){
+            from = sus.recov
+            to.ind = sample(which(adjmat.ri==1),1); to = infected[to.ind]
+            adjmat[as.integer(from),as.integer(to)] = 0
+            adjmat[as.integer(to),as.integer(from)] = 0
+            adjmat.ri = adjmat[sus.recov,infected]
+          }else if (N.I == 1){
+            num.con = adjmat.ri
+            from.ind = sample(N.SR,1,prob = num.con); from = sus.recov[from.ind]
+            to = infected
+            adjmat[as.integer(from),as.integer(to)] = 0
+            adjmat[as.integer(to),as.integer(from)] = 0
+            adjmat.ri = adjmat[sus.recov,infected]
+          }else{
+            dis.ind = sample(N.c[2], 1)
+            from = adjmat.ri@i[dis.ind] + 1; to = adjmat.ri@j[dis.ind] + 1
+            adjmat.ri[as.integer(from),as.integer(to)] = 0
+            
+            from = sus.recov[from]; to = infected[to]
+            adjmat[as.integer(from),as.integer(to)] = 0
+            adjmat[as.integer(to),as.integer(from)] = 0
+          }
+          adjmat.si = adjmat[susceptible,infected]
+          msg = paste0("disconnect an S-I/R-I pair, (",from,",",to,").")
         }
         
         N.c[2] = N.c[2] - 1; N.d[2] = N.d[2] + 1
-        N.SI = N.c[2]
+        N.SI = nnzero(adjmat.si)
         
-        msg = paste0("reconnect an S-I pair, (",from,",",to,").")
       }
       if(z==8){
         # disconnect a random I-I pair
@@ -347,6 +402,10 @@ stochastic_coevolve_d <- function(N=200, tmax=100,
         N.S = N.S + 1
       }else{
         epid[recover] = -1
+        if(quarantine){
+          recovered = c(recovered, recover)
+          N.R = N.R + 1
+        }
       }
       
       msg = paste0("individual ", recover,
@@ -412,22 +471,44 @@ stochastic_coevolve_d <- function(N=200, tmax=100,
       if(N.S == 0){
         adjmat.si = NULL
         N.SI = 0
+        if(quarantine && model == "SIR" && N.R == 0){
+          adjmat.ri = NULL
+          N.c[2] = 0
+        }
       }else{
         adjmat.si = adjmat[susceptible,infected]
         N.SI = nnzero(adjmat.si)
+        if(quarantine && model == "SIR"){
+          adjmat.ri = adjmat[union(susceptible,recovered),infected]
+          N.c[2] = nnzero(adjmat.ri)
+        }
       }
       if(quarantine){
-        if(N.S <= 1){
-          adjmat.ss = 0
-          N.c[1] = 0
-          N.d[1] = 0
+        if(model == "SIS"){
+          if(N.S <= 1){
+            adjmat.ss = 0
+            N.c[1] = 0
+            N.d[1] = 0
+          }else{
+            adjmat.ss = adjmat[susceptible,susceptible]
+            N.c[1] = nnzero(adjmat.ss)/2
+            N.d[1] = N.S * (N.S - 1)/2 - N.c[1]
+          }
+          N.c[2] = N.SI
+          N.d[2] = N.S * N.I - N.c[2]
         }else{
-          adjmat.ss = adjmat[susceptible,susceptible]
-          N.c[1] = nnzero(adjmat.ss)/2
-          N.d[1] = N.S * (N.S - 1)/2 - N.c[1]
+          N.SR = N.S + N.R; sus.recov = union(susceptible,recovered)
+          if(N.SR <= 1){
+            adjmat.rs = 0
+            N.c[1] = 0
+            N.d[1] = 0
+          }else{
+            adjmat.rs = adjmat[sus.recov,sus.recov]
+            N.c[1] = nnzero(adjmat.rs)/2
+            N.d[1] = N.SR * (N.SR - 1)/2 - N.c[1]
+          }
+          N.d[2] = N.SR * N.I - N.c[2]
         }
-        N.c[2] = N.SI
-        N.d[2] = N.S * N.I - N.c[2]
         if(N.I == 1){
           adjmat.ii = 0
           N.c[3] = 0
@@ -460,7 +541,7 @@ stochastic_coevolve_d <- function(N=200, tmax=100,
       # edgelist.cur = data.frame(from=adjmat@i+1, to=adjmat@j+1, time=t.int)
       # edgelist = rbind(edgelist, edgelist.cur)
       t.int = round(t.cur)
-      title = paste("Time:",t.int)
+      title = paste("Day:",t.int)
       g.cur = graph_from_adjacency_matrix(adjmat, mode = "undirected")
       vcol = rep("floralwhite",N)
       vcol[epid==1] = "firebrick1"
@@ -500,7 +581,7 @@ stochastic_coevolve_d <- function(N=200, tmax=100,
   if(!is.null(d.int)){
     # edgelist.cur = data.frame(from=adjmat@i+1, to=adjmat@j+1, time=t.int)
     # edgelist = rbind(edgelist, edgelist.cur)
-    title = "At the end"
+    title = paste("(End) Day:", ceiling(t.cur))
     g.cur = graph_from_adjacency_matrix(adjmat, mode = "undirected")
     vcol = rep("floralwhite",N)
     vcol[epid==1] = "firebrick1"
@@ -528,11 +609,39 @@ legend(.01,.9, legend = c("Susceptible","Infected","Recovered"), pch=21,
        pt.bg=c("floralwhite","firebrick1","deepskyblue2"), 
        pt.cex=2.5, cex=2, bty="n", ncol=1)
 
+# change it up a bit: larger edge disconnecting rate
+#plot.new()
+d1 = stochastic_coevolve_d(N=20, alpha.r = .001, alpha.d = .01, 
+                           bet = .3, gam = .1, model = "SIR",
+                           seed = 31, d.int = 5, verbose = T)
+plot.new()
+legend(.01,.9, legend = c("Susceptible","Infected","Recovered"), pch=21,
+       col="black", 
+       pt.bg=c("floralwhite","firebrick1","deepskyblue2"), 
+       pt.cex=2.5, cex=2, bty="n", ncol=1)
 
-# 2. Simple quarantine: 
+
+# 2. Simple quarantine/isolation: 
 # alpha.d.SI large, alpha.r.SI=0, the rest is same
 par(mfrow=c(1,4), mar=c(1,1,2,2))
 d2 = stochastic_coevolve_d(N=20, bet = .3, gam = .1, model = "SIR",
                            alpha.r = c(.001,0,.001), alpha.d = c(.01, .2, .01),
                            quarantine = T, seed = 43, 
                            d.int = 2, verbose = T)
+plot.new()
+legend(.01,.9, legend = c("Susceptible","Infected","Recovered"), pch=21,
+       col="black", 
+       pt.bg=c("floralwhite","firebrick1","deepskyblue2"), 
+       pt.cex=2.5, cex=2, bty="n", ncol=1)
+
+# also: change it up a bit too
+par(mfrow=c(2,4))
+d2 = stochastic_coevolve_d(N=20, bet = .3, gam = .1, model = "SIR",
+                           alpha.r = c(.002,0,.001), alpha.d = c(.01, .4, .01),
+                           quarantine = T, seed = 31, 
+                           d.int = 4, verbose = T)
+plot.new()
+legend(.01,.9, legend = c("Susceptible","Infected","Recovered"), pch=21,
+       col="black", 
+       pt.bg=c("floralwhite","firebrick1","deepskyblue2"), 
+       pt.cex=2.5, cex=2, bty="n", ncol=1)
