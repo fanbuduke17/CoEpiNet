@@ -1,7 +1,7 @@
 # 04/06/2019
 
 # 10/02/2019
-# modifications made s.t. all healthy people behave quivalently socially
+# modifications made s.t. all healthy people behave equivalently socially
 
 #### TOY EXAMPLE ####
 ## dynamically plot network structure
