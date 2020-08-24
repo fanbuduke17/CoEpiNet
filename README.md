@@ -1,6 +1,6 @@
 
 # CoEpiNet
-Codes for _Likelihood-based Inference for Partially Observed Epidemics on Dynamic Networks_
+Code files for _Likelihood-based Inference for Partially Observed Epidemics on Dynamic Networks_ (paper published in [JASA](https://doi.org/10.1080/01621459.2020.1790376))
 
 ## Things included
 1. simulation codes (both SIR- and SIS-type) epidemic processes on adaptive networks
@@ -83,7 +83,11 @@ bench::press(
 Another function `pipeline_miss_recov` in the same file goes through the following pipeline: generate missingness, conduct inference, and run diagonostics. For example, to generate 100% missing from the data in "ex3dat_5.rds" and then conduct inference using all three data augmentation samplers (proposed, rejection, MH) as well as compare them:
 ```r
 source("./inference_miss_recov.R")
-res.pipe = pipeline_miss_recov("ex3dat_5, fpath = "./", interval = 7, miss_prop = 1, miss_model = "SIR",
+res.pipe = pipeline_miss_recov("ex3dat_5", fpath = "./", interval = 7, miss_prop = 1, miss_model = "SIR",
                                 doMH = T, save_miss = F, pdfname = "pipeline_plots")
 ```
 And all the plots will be saved to a pdf file named "pipeline_plots.pdf".
+
+
+### Citation
+Fan Bu, Allison E. Aiello, Jason Xu & Alexander Volfovsky (2020) Likelihood-Based Inference for Partially Observed Epidemics on Dynamic Networks, Journal of the American Statistical Association, DOI: 10.1080/01621459.2020.1790376.
